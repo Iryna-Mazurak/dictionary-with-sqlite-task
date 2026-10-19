@@ -1,6 +1,10 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { createSelector } from "@reduxjs/toolkit";
 import { INITIAL_FORGETTING_SPAN } from "../constants";
+import {
+  addWord as saveWord,
+  updateWord as saveUpdatedWord,
+} from "./dbUtils";
 
 const initialState = {
   words: [],
@@ -13,6 +17,7 @@ const wordsLearningSlice = createSlice({
     setInitial(state, action) {
       state.words = action.payload;
     },
+
     updateWordLearnInfo(state, action) {
       const wordInfoToUpdate = state.words.find(
         (wordInfo) => wordInfo.word === action.payload
@@ -26,7 +31,9 @@ const wordsLearningSlice = createSlice({
         milisecondsNow + wordInfoToUpdate.forgettingSpan
       ).getTime();
       wordInfoToUpdate.status = 2;
+      saveUpdatedWord({ ...wordInfoToUpdate });
     },
+
     addWord(state, action) {
       if (state.words.find((el) => el.word === action.payload.word)) return;
       const nowMiliseconds = new Date().getTime();
@@ -38,7 +45,9 @@ const wordsLearningSlice = createSlice({
       wordData.forgettingSpan = INITIAL_FORGETTING_SPAN;
       wordData.status = 0;
       state.words.push(wordData);
+      saveWord(wordData);
     },
+
     updateWord(state, action) {
       const wordIndexToUpdate = state.words.findIndex(
         (wordInfo) => wordInfo.word === action.payload.word
@@ -47,13 +56,21 @@ const wordsLearningSlice = createSlice({
         ...state.words[wordIndexToUpdate],
         ...action.payload,
       };
+      saveUpdatedWord(state.words[wordIndexToUpdate]);
     },
+
     removeWord(state, action) {
-      state.words = state.words.filter((item) => item.word != action.payload);
+      state.words = state.words.filter(
+        (item) => item.word !== action.payload
+      );
     },
+
     updateStatuses(state) {
       const milisecondsNow = new Date().getTime();
+
       for (const wordInfo of state.words) {
+        const previousStatus = wordInfo.status;
+
         if (wordInfo.dateTotallyForgets <= milisecondsNow) {
           wordInfo.status = 0;
         } else if (
@@ -61,6 +78,10 @@ const wordsLearningSlice = createSlice({
           wordInfo.dateTotallyForgets > milisecondsNow
         ) {
           wordInfo.status = 1;
+        }
+
+        if (wordInfo.status !== previousStatus) {
+          saveUpdatedWord({ ...wordInfo });
         }
       }
     },
